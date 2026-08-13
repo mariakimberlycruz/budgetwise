@@ -1,0 +1,1 @@
+"""BudgetWise backend application."""

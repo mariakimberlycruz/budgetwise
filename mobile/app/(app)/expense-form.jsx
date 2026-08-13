@@ -1,0 +1,328 @@
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedView } from '@/components/themed-view';
+import { BUDGET_CATEGORIES, CATEGORY_COLORS, subcategoriesFor } from '@/constants/expenses';
+import { Spacing } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/use-theme';
+import { createExpense, getExpense, updateExpense } from '@/services/expense';
+import { isValidISODate, todayISO } from '@/utils/dates';
+import { getErrorMessage } from '@/utils/errors';
+
+export default function ExpenseFormScreen() {
+  const colors = useThemeColors();
+  const params = useLocalSearchParams();
+  const expenseId = params?.id ? Number(params.id) : null;
+  const isEditing = expenseId !== null;
+
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState(BUDGET_CATEGORIES[0]);
+  const [subcategory, setSubcategory] = useState(subcategoriesFor(BUDGET_CATEGORIES[0])[0]);
+  const [description, setDescription] = useState('');
+  const [expenseDate, setExpenseDate] = useState(todayISO());
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const expense = await getExpense(expenseId);
+        if (!cancelled) {
+          setAmount(expense.amount);
+          setCategory(expense.category);
+          setSubcategory(expense.subcategory);
+          setDescription(expense.description ?? '');
+          setExpenseDate(expense.expense_date);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(getErrorMessage(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [expenseId, isEditing]);
+
+  const handleCategoryChange = (value) => {
+    setCategory(value);
+    setSubcategory(subcategoriesFor(value)[0]);
+  };
+
+  const validate = () => {
+    const trimmedAmount = amount.trim();
+    if (!trimmedAmount) {
+      return 'Please enter an amount.';
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(trimmedAmount)) {
+      return 'Amount must be a number with up to 2 decimal places.';
+    }
+    if (Number(trimmedAmount) <= 0) {
+      return 'Amount must be greater than zero.';
+    }
+    if (!category) {
+      return 'Please choose a category.';
+    }
+    if (!subcategory) {
+      return 'Please choose a subcategory.';
+    }
+    if (!isValidISODate(expenseDate)) {
+      return 'Please enter a valid date in YYYY-MM-DD format.';
+    }
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    const payload = {
+      amount: Number(amount.trim()),
+      category,
+      subcategory,
+      description: description.trim() || null,
+      expense_date: expenseDate,
+    };
+    try {
+      if (isEditing) {
+        await updateExpense(expenseId, payload);
+      } else {
+        await createExpense(payload);
+      }
+      router.back();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <ThemedText type="subtitle">{isEditing ? 'Edit Expense' : 'Add Expense'}</ThemedText>
+          <Pressable onPress={() => router.back()} style={styles.closeButton}>
+            <Text style={[styles.closeText, { color: colors.textSecondary }]}>Close</Text>
+          </Pressable>
+        </View>
+
+        {loading ? (
+          <View style={styles.center}>
+            <ThemedText type="body" style={{ color: colors.textSecondary }}>
+              Loading…
+            </ThemedText>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            <View style={styles.field}>
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                Amount (₱)
+              </ThemedText>
+              <ThemedTextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                inputMode="decimal"
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                value={amount}
+                onChangeText={setAmount}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                Category
+              </ThemedText>
+              <View style={styles.chips}>
+                {BUDGET_CATEGORIES.map((value) => {
+                  const selected = category === value;
+                  return (
+                    <Pressable
+                      key={value}
+                      onPress={() => handleCategoryChange(value)}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: selected ? CATEGORY_COLORS[value] : colors.backgroundElement,
+                          borderColor: selected ? CATEGORY_COLORS[value] : colors.border,
+                        },
+                      ]}>
+                      <Text style={[styles.chipText, { color: selected ? '#FFFFFF' : colors.text }]}>
+                        {value}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                Subcategory
+              </ThemedText>
+              <View style={styles.chips}>
+                {subcategoriesFor(category).map((value) => {
+                  const selected = subcategory === value;
+                  return (
+                    <Pressable
+                      key={value}
+                      onPress={() => setSubcategory(value)}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: selected ? colors.tint : colors.backgroundElement,
+                          borderColor: selected ? colors.tint : colors.border,
+                        },
+                      ]}>
+                      <Text style={[styles.chipText, { color: selected ? '#FFFFFF' : colors.text }]}>
+                        {value}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                Date (YYYY-MM-DD)
+              </ThemedText>
+              <ThemedTextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="2026-08-01"
+                value={expenseDate}
+                onChangeText={setExpenseDate}
+              />
+              <Pressable onPress={() => setExpenseDate(todayISO())} style={styles.todayButton}>
+                <Text style={[styles.todayText, { color: colors.tint }]}>Today</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.field}>
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                Description (optional)
+              </ThemedText>
+              <ThemedTextInput
+                autoCapitalize="sentences"
+                placeholder="e.g. Monthly rent"
+                value={description}
+                onChangeText={setDescription}
+              />
+            </View>
+
+            {error ? (
+              <ThemedText type="small" style={{ color: colors.error }}>
+                {error}
+              </ThemedText>
+            ) : null}
+
+            <Pressable
+              disabled={saving}
+              onPress={() => void handleSubmit()}
+              style={[styles.saveButton, { backgroundColor: colors.tint }, saving && styles.buttonDisabled]}>
+              <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save'}</Text>
+            </Pressable>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+    maxWidth: 560,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.three,
+  },
+  closeButton: {
+    padding: Spacing.two,
+  },
+  closeText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  form: {
+    gap: Spacing.three,
+    paddingBottom: Spacing.five,
+  },
+  field: {
+    gap: Spacing.two,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  chip: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  todayButton: {
+    alignSelf: 'flex-start',
+    paddingTop: Spacing.one,
+  },
+  todayText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  saveButton: {
+    marginTop: Spacing.two,
+    paddingVertical: Spacing.three,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

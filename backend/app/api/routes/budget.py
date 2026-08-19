@@ -1,15 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.envelope import EnvelopeRoute
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.budget import BudgetOut, BudgetSet, BudgetSummary
 from app.services.budget import get_budget_summary, set_budget
 
-router = APIRouter(prefix="/budgets", tags=["budgets"])
+router = APIRouter(prefix="/budgets", tags=["budgets"], route_class=EnvelopeRoute)
 
 DbSession = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -30,6 +31,8 @@ def set_budget_endpoint(
     payload: BudgetSet,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
 ) -> BudgetOut:
     budget = set_budget(db, current_user.id, payload)
+    request.state.message = "Budget saved successfully"
     return BudgetOut.model_validate(budget)

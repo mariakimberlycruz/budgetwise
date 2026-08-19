@@ -2,12 +2,13 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError
 from app.models.income import Income
 from app.repositories.income import IncomeRepository
 from app.schemas.income import IncomeCreate, IncomeList, IncomeOut, IncomeUpdate
 
 
-class IncomeNotFoundError(Exception):
+class IncomeNotFoundError(NotFoundError):
     pass
 
 

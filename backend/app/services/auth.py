@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core.errors import ConflictError, NotFoundError, UnauthorizedError
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.repositories.user import UserRepository
@@ -7,15 +8,15 @@ from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserLogin, UserUpdate
 
 
-class DuplicateEmailError(Exception):
+class DuplicateEmailError(ConflictError):
     pass
 
 
-class InvalidCredentialsError(Exception):
+class InvalidCredentialsError(UnauthorizedError):
     pass
 
 
-class UserNotFoundError(Exception):
+class UserNotFoundError(NotFoundError):
     pass
 
 

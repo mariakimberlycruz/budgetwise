@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError
 from app.models.recurring_expense import RecurringExpense
 from app.repositories.recurring_expense import RecurringExpenseRepository
 from app.schemas.recurring_expense import (
@@ -13,7 +14,7 @@ from app.schemas.recurring_expense import (
 )
 
 
-class RecurringExpenseNotFoundError(Exception):
+class RecurringExpenseNotFoundError(NotFoundError):
     pass
 
 

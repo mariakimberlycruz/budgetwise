@@ -21,6 +21,43 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - Interactive docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/api/v1/health
 
+## Response format & error handling
+
+Every `/api/v1/*` route except `/health` returns the same envelope, success or failure:
+
+```json
+// success
+{"success": true, "message": "Expense created successfully", "data": { }}
+// error
+{"success": false, "message": "Expense amount must be greater than zero", "data": null}
+```
+
+This is applied automatically by `EnvelopeRoute` (`app/core/envelope.py`), which every router opts into via `APIRouter(..., route_class=EnvelopeRoute)` — individual endpoints don't build the envelope by hand. A route can set a specific success message with `request.state.message = "..."` (see `app/api/routes/expense.py`); otherwise a sensible default is derived from the HTTP method.
+
+Errors are handled centrally in `app/core/errors.py` (`register_exception_handlers`, wired up in `main.py`):
+
+| Status | Cause |
+| ------ | ----- |
+| 400 | `BadRequestError` (available for domain code; not currently raised) |
+| 401 | Missing/invalid/expired token, wrong password (`UnauthorizedError`, or the OAuth2 dependency's `HTTPException`) |
+| 403 | `ForbiddenError` (available; this app has no role/permission tiers today, so nothing raises it yet) |
+| 404 | Resource not found, **or** a resource that belongs to another user (`NotFoundError`) — this app never reveals that another user's record exists |
+| 409 | Duplicate email (`ConflictError`) |
+| 422 | Pydantic validation — both field constraints (`Field(gt=0, ...)`) and custom `@field_validator`/`@model_validator` rules (e.g. budget percentages must total 100) |
+| 500 | A `SQLAlchemyError` (database failure) or any other unhandled exception — the client only ever sees a generic message; the real exception is logged server-side via `logger.exception(...)`, never returned in the response |
+
+Domain errors are plain exception classes (`ExpenseNotFoundError(NotFoundError)`, `DuplicateEmailError(ConflictError)`, ...) raised from the service layer — routes don't catch them individually; the global handler maps the exception's `status_code` to a response.
+
+## Tests
+
+```bash
+cd backend
+.venv\Scripts\python.exe -m pytest       # Windows
+# .venv/bin/python -m pytest             # macOS / Linux
+```
+
+68 tests across `tests/` cover: auth + authorization (a user can never read/update/delete another user's income, expenses, budgets, savings goals, or bills — verified as 404s), the `{success, message, data}` envelope contract, and the core business rules — the 50/30/20 default and any custom split that totals 100 are valid, income/expenses/budget amounts can't be negative, budget/report/financial-health calculations are asserted against hand-computed expected values. Each test runs against an isolated in-memory SQLite database (see `tests/conftest.py`), so nothing touches `budgetwise.db`.
+
 ## Authentication
 
 JWT-based auth with bcrypt password hashing.
@@ -30,6 +67,9 @@ JWT-based auth with bcrypt password hashing.
 | `/api/v1/auth/register` | POST | No | Create a user (name, email, password) |
 | `/api/v1/auth/login` | POST | No | Exchange email + password for an access token |
 | `/api/v1/auth/me` | GET | Bearer | Get the currently logged-in user |
+| `/api/v1/auth/me` | PUT | Bearer | Update the profile: `{"name"?, "email"?}` |
+
+Updating the email to one already used by another account returns `409 Conflict`.
 
 Register:
 
@@ -191,16 +231,36 @@ Validation: `name` is required (1–120 chars), `target_amount` must be > 0, `cu
 
 Authorization: a user can only read/update/delete their own goals. Accessing another user's goal returns `404 Not Found`.
 
+## Profile & settings
+
+Authenticated and scoped to the logged-in user.
+
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/api/v1/auth/me` | GET | Profile (name, email) — see Authentication |
+| `/api/v1/auth/me` | PUT | Update profile: `{"name"?, "email"?}` |
+| `/api/v1/settings` | GET | Per-user settings; defaults are created on first access |
+| `/api/v1/settings` | PUT | Update settings (see body below) |
+
+```bash
+curl -X PUT http://localhost:8000/api/v1/settings \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"currency":"PHP","budget_needs":50,"budget_savings":30,"budget_wants":20,"theme":"system"}'
+```
+
+Defaults: currency `PHP`, budget percentages `50 / 30 / 20` (Needs / Savings / Wants), theme `system`. Validation: each budget percentage must be 0–100, the three must add up to **100**, and `theme` must be one of `light`, `dark`, or `system` — otherwise `422`. The `user_settings` table (unique per user) is created automatically on startup.
+
 ## Structure
 
 ```
 app/
-├── api/          Routers, dependencies (routes/health.py, auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py, deps.py)
+├── api/          Routers, dependencies (routes/health.py, auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py, settings.py, deps.py)
 ├── core/         Settings (config.py), security (JWT + password hashing)
 ├── db/           Engine, session factory, get_db dependency (session.py)
-├── models/       SQLAlchemy ORM models (Base, User, Income, Expense, Budget, SavingsGoal, category.py)
-├── repositories/ Data access layer (user.py, income.py, expense.py, budget.py, savings_goal.py)
+├── models/       SQLAlchemy ORM models (Base, User, Income, Expense, Budget, SavingsGoal, UserSettings, category.py)
+├── repositories/ Data access layer (user.py, income.py, expense.py, budget.py, savings_goal.py, settings.py)
 ├── schemas/      Pydantic request/response models
-├── services/     Business logic layer (health.py, auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py)
+├── services/     Business logic layer (health.py, auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py, settings.py)
 └── main.py       FastAPI app, CORS, lifespan
 ```

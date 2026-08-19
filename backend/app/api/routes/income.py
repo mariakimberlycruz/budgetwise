@@ -1,14 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.envelope import EnvelopeRoute
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.income import IncomeCreate, IncomeList, IncomeOut, IncomeUpdate
 from app.services.income import (
-    IncomeNotFoundError,
     create_income,
     delete_income,
     get_income,
@@ -16,7 +16,7 @@ from app.services.income import (
     update_income,
 )
 
-router = APIRouter(prefix="/income", tags=["income"])
+router = APIRouter(prefix="/income", tags=["income"], route_class=EnvelopeRoute)
 
 DbSession = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -37,8 +37,10 @@ def create_income_endpoint(
     payload: IncomeCreate,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
 ) -> IncomeOut:
     income = create_income(db, current_user.id, payload)
+    request.state.message = "Income added successfully"
     return IncomeOut.model_validate(income)
 
 
@@ -48,13 +50,7 @@ def get_income_endpoint(
     db: DbSession,
     current_user: CurrentUser,
 ) -> IncomeOut:
-    try:
-        income = get_income(db, income_id, current_user.id)
-    except IncomeNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    income = get_income(db, income_id, current_user.id)
     return IncomeOut.model_validate(income)
 
 
@@ -64,27 +60,19 @@ def update_income_endpoint(
     payload: IncomeUpdate,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
 ) -> IncomeOut:
-    try:
-        income = update_income(db, income_id, current_user.id, payload)
-    except IncomeNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    income = update_income(db, income_id, current_user.id, payload)
+    request.state.message = "Income updated successfully"
     return IncomeOut.model_validate(income)
 
 
-@router.delete("/{income_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{income_id}")
 def delete_income_endpoint(
     income_id: int,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
 ) -> None:
-    try:
-        delete_income(db, income_id, current_user.id)
-    except IncomeNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    delete_income(db, income_id, current_user.id)
+    request.state.message = "Income deleted successfully"

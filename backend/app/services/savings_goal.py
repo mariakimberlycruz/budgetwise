@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError
 from app.models.savings_goal import SavingsGoal
 from app.repositories.savings_goal import SavingsGoalRepository
 from app.schemas.savings_goal import (
@@ -13,7 +14,7 @@ from app.schemas.savings_goal import (
 )
 
 
-class SavingsGoalNotFoundError(Exception):
+class SavingsGoalNotFoundError(NotFoundError):
     pass
 
 

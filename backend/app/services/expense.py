@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError
 from app.models.category import BUDGET_CATEGORIES
 from app.models.expense import Expense
 from app.repositories.budget import BudgetRepository
@@ -15,7 +16,7 @@ from app.schemas.expense import (
 )
 
 
-class ExpenseNotFoundError(Exception):
+class ExpenseNotFoundError(NotFoundError):
     pass
 
 

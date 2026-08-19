@@ -1,14 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.envelope import EnvelopeRoute
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.expense import ExpenseCreate, ExpenseList, ExpenseOut, ExpenseUpdate
 from app.services.expense import (
-    ExpenseNotFoundError,
     create_expense,
     delete_expense,
     get_expense,
@@ -16,7 +16,7 @@ from app.services.expense import (
     update_expense,
 )
 
-router = APIRouter(prefix="/expenses", tags=["expenses"])
+router = APIRouter(prefix="/expenses", tags=["expenses"], route_class=EnvelopeRoute)
 
 DbSession = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -48,8 +48,10 @@ def create_expense_endpoint(
     payload: ExpenseCreate,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
 ) -> ExpenseOut:
     expense = create_expense(db, current_user.id, payload)
+    request.state.message = "Expense created successfully"
     return ExpenseOut.model_validate(expense)
 
 
@@ -59,13 +61,7 @@ def get_expense_endpoint(
     db: DbSession,
     current_user: CurrentUser,
 ) -> ExpenseOut:
-    try:
-        expense = get_expense(db, expense_id, current_user.id)
-    except ExpenseNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    expense = get_expense(db, expense_id, current_user.id)
     return ExpenseOut.model_validate(expense)
 
 
@@ -75,27 +71,19 @@ def update_expense_endpoint(
     payload: ExpenseUpdate,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
 ) -> ExpenseOut:
-    try:
-        expense = update_expense(db, expense_id, current_user.id, payload)
-    except ExpenseNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    expense = update_expense(db, expense_id, current_user.id, payload)
+    request.state.message = "Expense updated successfully"
     return ExpenseOut.model_validate(expense)
 
 
-@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{expense_id}")
 def delete_expense_endpoint(
     expense_id: int,
     db: DbSession,
     current_user: CurrentUser,
+    request: Request,
 ) -> None:
-    try:
-        delete_expense(db, expense_id, current_user.id)
-    except ExpenseNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    delete_expense(db, expense_id, current_user.id)
+    request.state.message = "Expense deleted successfully"

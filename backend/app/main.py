@@ -15,6 +15,7 @@ from app.api.routes.recurring_expense import router as recurring_expense_router
 from app.api.routes.savings_goal import router as savings_goal_router
 from app.api.routes.settings import router as settings_router
 from app.core.config import get_settings
+from app.core.errors import register_exception_handlers
 from app.db.session import engine
 from app.models import Base
 
@@ -43,6 +44,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+register_exception_handlers(app)
+
+# /health is intentionally left out of the {success, message, data}
+# envelope — it's a plain liveness probe consumed by uptime/infra
+# tooling as well as the app, so it keeps a flat response shape.
 app.include_router(health_router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(income_router, prefix=settings.API_V1_PREFIX)

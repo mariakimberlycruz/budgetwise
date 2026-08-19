@@ -1,11 +1,8 @@
-<<<<<<< HEAD
-# budgetwise
-=======
 # BudgetWise
 
 Personal budgeting application — a single React Native codebase (Expo + React Native Web) targeting **Android, iOS, and Web**, backed by a local **FastAPI + SQLAlchemy** REST API.
 
-> **Current status:** authentication (registration, login, logout, JWT sessions, protected routes), income management, expense management (search + category/subcategory/month filters), monthly 50/30/20 budgets, a month-focused **dashboard**, and **savings goals** (targets, contributions, progress tracking) are implemented. Everything is per-user and combined on the dashboard.
+> **Current status:** authentication (registration, login, logout, JWT sessions, protected routes), income management, expense management (search + category/subcategory/month filters), monthly 50/30/20 budgets, a month-focused **dashboard**, **savings goals** (targets, contributions, progress tracking), recurring bills, reports, financial health, and **profile & settings** (editable profile, currency, default budget percentages, Light/Dark/System theme, logout) are implemented. A responsive nav shell (bottom tabs on phones, a sidebar from tablet width up) covers every primary screen. Every API response — success or error — uses a consistent `{success, message, data}` envelope with proper 400/401/403/404/409/422/500 status codes, and the frontend maps every failure (network, timeout, unauthorized, validation, server) to a safe, user-facing message. Everything is per-user and combined on the dashboard. Backend (pytest) and frontend (Jest) test suites cover the core business rules.
 
 ---
 
@@ -35,9 +32,9 @@ budgetwise/
 │   ├── app/                     # Expo Router routes (_layout.jsx, (auth)/, (app)/)
 │   ├── components/              # Reusable UI components (+ components/dashboard/)
 │   ├── constants/               # Theme, spacing, income + expense categories
-│   ├── context/                 # React context (AuthContext, AppContext/API status)
+│   ├── context/                 # React context (AuthContext, AppContext/API status, SettingsContext)
 │   ├── hooks/                   # Custom hooks (color scheme, theme)
-│   ├── services/                # Axios API client + auth/health/income/expense/budget/dashboard/savings services
+│   ├── services/                # Axios API client + auth/health/income/expense/budget/dashboard/savings/settings services
 │   ├── types/                   # Shared JSDoc type definitions
 │   ├── utils/                   # API base URL, token storage, error helpers, money/date/confirm utils
 │   ├── assets/                  # Icons, splash, images
@@ -46,13 +43,13 @@ budgetwise/
 │
 └── backend/                     # FastAPI backend
     ├── app/
-    │   ├── api/                 # Routers (routes/health.py, auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py), deps.py
+    │   ├── api/                 # Routers (routes/health.py, auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py, settings.py), deps.py
     │   ├── core/                # Settings (config.py), security (JWT + hashing)
     │   ├── db/                  # Engine, session (session.py)
-    │   ├── models/              # SQLAlchemy ORM models (Base, User, Income, Expense, Budget, SavingsGoal, category.py)
-    │   ├── repositories/        # Data access layer (user.py, income.py, expense.py, budget.py, savings_goal.py)
+    │   ├── models/              # SQLAlchemy ORM models (Base, User, Income, Expense, Budget, SavingsGoal, UserSettings, category.py)
+    │   ├── repositories/        # Data access layer (user.py, income.py, expense.py, budget.py, savings_goal.py, settings.py)
     │   ├── schemas/             # Pydantic schemas
-    │   ├── services/            # Business logic layer (auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py)
+    │   ├── services/            # Business logic layer (auth.py, income.py, expense.py, budget.py, dashboard.py, savings_goal.py, settings.py)
     │   └── main.py              # FastAPI app, CORS, lifespan
     ├── requirements.txt
     ├── .env
@@ -181,6 +178,17 @@ Authenticated savings goals, scoped to the logged-in user:
 
 `name` is required (1–120 chars), `target_amount` must be > 0, `current_amount` must be ≥ 0, `target_date` must be a valid date, and contribution `amount` must be > 0. `remaining` and `progress_percent` are computed on the backend. The `savings_goals` table is created automatically on startup.
 
+### Profile & settings
+
+Authenticated profile and per-user settings:
+
+- `GET /api/v1/auth/me` — the logged-in user's `name` and `email` (already covered under Authentication)
+- `PUT /api/v1/auth/me` — body: `{"name"?, "email"?}`; updates the profile. Changing to an email already used by another account returns `409 Conflict`
+- `GET /api/v1/settings` — returns `currency`, `budget_needs`, `budget_savings`, `budget_wants`, `theme` (creates defaults on first access)
+- `PUT /api/v1/settings` — body: `{"currency", "budget_needs", "budget_savings", "budget_wants", "theme"}`
+
+Defaults: currency `PHP` (Philippine Peso), budget percentages `50 / 30 / 20` (Needs / Savings / Wants), theme `system`. The budget percentages must add up to **100** (each 0–100) and `theme` must be one of `light`, `dark`, or `system` — otherwise the API returns `422`. The `user_settings` table (one row per user, unique on `user_id`) is created automatically on startup.
+
 ---
 
 ## 2. Mobile setup
@@ -244,8 +252,12 @@ Port comes from `EXPO_PUBLIC_API_PORT` (default `8000`).
    - **Recent Expenses** list (tap an entry to edit it; **View all** opens the Expenses screen).
    - Month navigation (`‹ August 2026 ›`) recomputes the whole dashboard for that month.
 6. Use the **Income**, **Expenses**, and **Budgets** pills to add records; **Savings** opens your savings goals (create a goal, then use **Contribute** to track progress). Returning to the dashboard refreshes the numbers.
-7. Press **Sign out** — you return to the login screen, and the session token is cleared.
-8. If the dashboard shows an error:
+7. Tap **Settings** (dashboard pill) to open the Profile & Settings screen:
+   - **Profile** — edit your name and email, then **Save profile**.
+   - **Preferences** — pick the **Currency** (default Philippine Peso ₱), set **Default budget** percentages (must add up to 100%), and choose a **Theme** (Light / Dark / System), then **Save settings**. The theme and currency apply app-wide immediately.
+   - **Log out** — clears the session and returns to the login screen.
+8. Press **Sign out** — you return to the login screen, and the session token is cleared.
+9. If the dashboard shows an error:
    - Confirm uvicorn is running (`--host 0.0.0.0`).
    - Confirm the resolved base URL is correct for your target.
    - On a physical device, confirm both devices share a network and the firewall allows port 8000.
@@ -262,4 +274,3 @@ Port comes from `EXPO_PUBLIC_API_PORT` (default `8000`).
 | `cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` | Run API |
 | `curl http://localhost:8000/api/v1/health` | Health check |
 | `curl "http://localhost:8000/api/v1/dashboard?month=8&year=2026" -H "Authorization: Bearer <token>"` | Dashboard calculation |
->>>>>>> 4630b24 (Initial commit)

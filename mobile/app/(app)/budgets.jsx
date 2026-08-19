@@ -1,8 +1,9 @@
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { MonthlySelector } from '@/components/dashboard/monthly-selector';
 import { ProgressBar } from '@/components/dashboard/progress-bar';
 import { AlertList } from '@/components/alerts/alert-list';
@@ -89,16 +90,14 @@ export default function BudgetsScreen() {
   const alerts = buildBudgetAlerts(alertItems);
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText type="title">Budgets</ThemedText>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={[styles.backText, { color: colors.textSecondary }]}>Back</Text>
-          </Pressable>
-        </View>
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <ThemedText type="title" style={styles.title}>
+            Budgets
+          </ThemedText>
 
-        <MonthlySelector
+          <MonthlySelector
           year={year}
           month={month}
           onChange={(newYear, newMonth) => {
@@ -171,9 +170,10 @@ export default function BudgetsScreen() {
               <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save budgets'}</Text>
             </Pressable>
           </ScrollView>
-        )}
-      </SafeAreaView>
-    </ThemedView>
+          )}
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 
@@ -189,18 +189,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  title: {
     marginBottom: Spacing.three,
-  },
-  backButton: {
-    padding: Spacing.two,
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
   stateBox: {
     alignItems: 'center',

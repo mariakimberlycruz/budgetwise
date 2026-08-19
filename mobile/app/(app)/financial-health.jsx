@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -6,17 +6,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { MonthlySelector } from '@/components/dashboard/monthly-selector';
 import { ProgressBar } from '@/components/dashboard/progress-bar';
 import { SectionCard } from '@/components/reports/section-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useNavLayout } from '@/hooks/use-nav-layout';
 import { useThemeColors } from '@/hooks/use-theme';
 import { getFinancialHealth } from '@/services/financial-health';
 import { getErrorMessage } from '@/utils/errors';
@@ -110,7 +111,7 @@ function ComponentsCard({ components = {} }) {
 
 export default function FinancialHealthScreen() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
+  const { width } = useNavLayout();
   const wide = width >= WIDE_BREAKPOINT;
 
   const now = new Date();
@@ -141,16 +142,14 @@ export default function FinancialHealthScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText type="title">Financial Health</ThemedText>
-          <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
-            <Text style={[styles.backText, { color: colors.textSecondary }]}>Back</Text>
-          </Pressable>
-        </View>
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <ThemedText type="title" style={styles.title}>
+            Financial Health
+          </ThemedText>
 
-        <MonthlySelector
+          <MonthlySelector
           year={year}
           month={month}
           onChange={(newYear, newMonth) => {
@@ -187,9 +186,10 @@ export default function FinancialHealthScreen() {
 
             <ComponentsCard components={data.components ?? {}} />
           </ScrollView>
-        )}
-      </SafeAreaView>
-    </ThemedView>
+          )}
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 
@@ -205,18 +205,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  title: {
     marginBottom: Spacing.three,
-  },
-  backButton: {
-    padding: Spacing.two,
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
   stateBox: {
     flex: 1,

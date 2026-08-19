@@ -1,8 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -169,12 +170,7 @@ export default function IncomeScreen() {
 
   const listHeader = (
     <View style={styles.header}>
-      <View style={styles.titleRow}>
-        <ThemedText type="title">Income</ThemedText>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backText, { color: colors.textSecondary }]}>Back</Text>
-        </Pressable>
-      </View>
+      <ThemedText type="title">Income</ThemedText>
 
       <MonthNavigator
         year={year}
@@ -197,11 +193,13 @@ export default function IncomeScreen() {
         </ThemedText>
       </ThemedView>
 
-      <Pressable
-        onPress={() => router.push('/income-form')}
-        style={[styles.addButton, { backgroundColor: colors.tint }]}>
-        <Text style={styles.addButtonText}>+ Add Income</Text>
-      </Pressable>
+      {Platform.OS === 'web' ? (
+        <Pressable
+          onPress={() => router.push('/income-form')}
+          style={[styles.addButton, { backgroundColor: colors.tint }]}>
+          <Text style={styles.addButtonText}>+ Add Income</Text>
+        </Pressable>
+      ) : null}
 
       {error && items.length > 0 ? (
         <ThemedText type="small" style={{ color: colors.error }}>
@@ -212,19 +210,29 @@ export default function IncomeScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <FlatList
-          data={items}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderItem}
-          ListHeaderComponent={listHeader}
-          ListEmptyComponent={renderEmpty}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      </SafeAreaView>
-    </ThemedView>
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <FlatList
+            data={items}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={renderItem}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={renderEmpty}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+          {Platform.OS !== 'web' ? (
+            <Pressable
+              onPress={() => router.push('/income-form')}
+              style={[styles.fab, { backgroundColor: colors.tint }]}
+              accessibilityLabel="Add income">
+              <Text style={styles.fabText}>+</Text>
+            </Pressable>
+          ) : null}
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 
@@ -246,18 +254,6 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: Spacing.three,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backButton: {
-    padding: Spacing.two,
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
   monthRow: {
     flexDirection: 'row',
@@ -343,5 +339,31 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  fab: {
+    position: 'absolute',
+    right: Spacing.four,
+    bottom: Spacing.five,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 8px rgba(0, 0, 0, 0.25)' },
+      default: {
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  fabText: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '600',
   },
 });

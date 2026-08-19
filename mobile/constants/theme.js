@@ -33,3 +33,20 @@ export const Spacing = {
   five: 32,
   six: 64,
 };
+
+export const Radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  pill: 999,
+};
+
+// Small phone / large phone start at 0 (the default), so only the wider
+// breakpoints need an explicit cutoff. Tablet doubles as the switch from
+// mobile bottom-tab navigation to the desktop-style sidebar.
+export const Breakpoints = {
+  largePhone: 400,
+  tablet: 768,
+  laptop: 1024,
+  desktop: 1280,
+};

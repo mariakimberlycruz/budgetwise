@@ -8,16 +8,17 @@ import {
   StyleSheet,
   Switch,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CATEGORY_COLORS } from '@/constants/expenses';
 import { FREQUENCY_LABELS } from '@/constants/recurring';
 import { Spacing } from '@/constants/theme';
+import { useNavLayout } from '@/hooks/use-nav-layout';
 import { useThemeColors } from '@/hooks/use-theme';
 import {
   deleteRecurringExpense,
@@ -179,7 +180,7 @@ function BillTableRow({ bill, toggling, onToggle, onEdit, onDelete }) {
 
 export default function BillsScreen() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
+  const { width } = useNavLayout();
   const wide = width >= BREAKPOINT;
 
   const [bills, setBills] = useState([]);
@@ -381,27 +382,29 @@ export default function BillsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <FlatList
-          data={visible}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderItem}
-          ListHeaderComponent={listHeader}
-          ListEmptyComponent={renderEmpty}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-        {Platform.OS !== 'web' ? (
-          <Pressable
-            onPress={() => router.push('/bill-form')}
-            style={[styles.fab, { backgroundColor: colors.tint }]}
-            accessibilityLabel="Add bill">
-            <Text style={styles.fabText}>+</Text>
-          </Pressable>
-        ) : null}
-      </SafeAreaView>
-    </ThemedView>
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <FlatList
+            data={visible}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={renderItem}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={renderEmpty}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+          {Platform.OS !== 'web' ? (
+            <Pressable
+              onPress={() => router.push('/bill-form')}
+              style={[styles.fab, { backgroundColor: colors.tint }]}
+              accessibilityLabel="Add bill">
+              <Text style={styles.fabText}>+</Text>
+            </Pressable>
+          ) : null}
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 

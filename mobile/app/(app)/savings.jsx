@@ -1,13 +1,15 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { ProgressBar } from '@/components/dashboard/progress-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useNavLayout } from '@/hooks/use-nav-layout';
 import { useThemeColors } from '@/hooks/use-theme';
 import { deleteSavingsGoal, getSavingsGoals } from '@/services/savings';
 import { confirmDelete } from '@/utils/confirm';
@@ -107,7 +109,7 @@ function SavingsGoalCard({ goal, deleting, onContribute, onEdit, onDelete }) {
 
 export default function SavingsScreen() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
+  const { width } = useNavLayout();
 
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -153,9 +155,10 @@ export default function SavingsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View>
               <ThemedText type="title">Savings Goals</ThemedText>
@@ -218,16 +221,17 @@ export default function SavingsScreen() {
           )}
         </ScrollView>
 
-        {Platform.OS !== 'web' ? (
-          <Pressable
-            onPress={() => router.push('/savings-goal-form')}
-            style={[styles.fab, { backgroundColor: colors.tint }]}
-            accessibilityLabel="Add savings goal">
-            <Text style={styles.fabText}>+</Text>
-          </Pressable>
-        ) : null}
-      </SafeAreaView>
-    </ThemedView>
+          {Platform.OS !== 'web' ? (
+            <Pressable
+              onPress={() => router.push('/savings-goal-form')}
+              style={[styles.fab, { backgroundColor: colors.tint }]}
+              accessibilityLabel="Add savings goal">
+              <Text style={styles.fabText}>+</Text>
+            </Pressable>
+          ) : null}
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 

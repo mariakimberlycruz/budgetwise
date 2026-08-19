@@ -60,6 +60,7 @@ export function SettingsProvider({ children }) {
 
   const updateSettings = useCallback(
     async (patch) => {
+      const previous = settings;
       // Apply optimistically so theme/currency update immediately.
       setSettings((prev) => ({ ...prev, ...patch }));
       if (!isAuthenticated) {
@@ -67,16 +68,18 @@ export function SettingsProvider({ children }) {
       }
       try {
         const saved = await updateSettingsApi({
-          currency: settings.currency,
-          budget_needs: settings.budget_needs,
-          budget_savings: settings.budget_savings,
-          budget_wants: settings.budget_wants,
-          theme: settings.theme,
+          currency: previous.currency,
+          budget_needs: previous.budget_needs,
+          budget_savings: previous.budget_savings,
+          budget_wants: previous.budget_wants,
+          theme: previous.theme,
           ...patch,
         });
         setSettings((prev) => ({ ...prev, ...saved }));
-      } catch {
-        // surface errors from the Settings screen caller instead
+      } catch (err) {
+        // Roll back the optimistic update and surface the error to the caller.
+        setSettings(previous);
+        throw err;
       }
     },
     [isAuthenticated, settings],

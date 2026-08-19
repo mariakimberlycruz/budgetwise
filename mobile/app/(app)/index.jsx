@@ -1,8 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { BudgetCard } from '@/components/dashboard/budget-card';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { MonthlySelector } from '@/components/dashboard/monthly-selector';
@@ -13,6 +14,7 @@ import { ThemedView } from '@/components/themed-view';
 import { CATEGORY_COLORS } from '@/constants/expenses';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { useNavLayout } from '@/hooks/use-nav-layout';
 import { useThemeColors } from '@/hooks/use-theme';
 import { getDashboard } from '@/services/dashboard';
 import { getErrorMessage } from '@/utils/errors';
@@ -34,7 +36,7 @@ function gridColumns(width) {
 export default function DashboardScreen() {
   const colors = useThemeColors();
   const { user, signOut } = useAuth();
-  const { width } = useWindowDimensions();
+  const { width } = useNavLayout();
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -71,17 +73,6 @@ export default function DashboardScreen() {
     setSigningOut(true);
     await signOut();
   };
-
-  const navItems = [
-    { label: 'Income', route: '/income' },
-    { label: 'Expenses', route: '/expenses' },
-    { label: 'Budgets', route: '/budgets' },
-    { label: 'Savings', route: '/savings' },
-    { label: 'Bills', route: '/bills' },
-    { label: 'Reports', route: '/reports' },
-    { label: 'Health', route: '/financial-health' },
-    { label: 'Settings', route: '/settings' },
-  ];
 
   const renderSummaryGrid = () => (
     <View style={styles.grid}>
@@ -176,71 +167,62 @@ export default function DashboardScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View>
-              <ThemedText type="title">BudgetWise</ThemedText>
-              <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                {user ? `Welcome, ${user.name.split(' ')[0]}` : 'Welcome back'}
-              </ThemedText>
-            </View>
-            <Pressable
-              disabled={signingOut}
-              onPress={() => void handleSignOut()}
-              style={[styles.signOut, { backgroundColor: colors.error }, signingOut && styles.buttonDisabled]}>
-              <Text style={styles.signOutText}>{signingOut ? '…' : 'Sign out'}</Text>
-            </Pressable>
-          </View>
-
-          <MonthlySelector
-            year={year}
-            month={month}
-            onChange={(newYear, newMonth) => {
-              setYear(newYear);
-              setMonth(newMonth);
-            }}
-          />
-
-          <View style={styles.navRow}>
-            {navItems.map((item) => (
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <View>
+                <ThemedText type="title">BudgetWise</ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  {user ? `Welcome, ${user.name.split(' ')[0]}` : 'Welcome back'}
+                </ThemedText>
+              </View>
               <Pressable
-                key={item.route}
-                onPress={() => router.push(item.route)}
-                style={[styles.navPill, { backgroundColor: colors.backgroundElement }]}>
-                <Text style={[styles.navPillText, { color: colors.text }]}>{item.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {loading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator size="large" color={colors.tint} />
-            </View>
-          ) : error ? (
-            <View style={styles.stateBox}>
-              <ThemedText type="body" style={{ color: colors.error, textAlign: 'center' }}>
-                {error}
-              </ThemedText>
-              <Pressable
-                onPress={() => void loadDashboard()}
-                style={[styles.retryButton, { backgroundColor: colors.tint }]}>
-                <Text style={styles.retryButtonText}>Try again</Text>
+                disabled={signingOut}
+                onPress={() => void handleSignOut()}
+                style={[styles.signOut, { backgroundColor: colors.error }, signingOut && styles.buttonDisabled]}>
+                <Text style={styles.signOutText}>{signingOut ? '…' : 'Sign out'}</Text>
               </Pressable>
             </View>
-          ) : (
-            <>
-              {renderSummaryGrid()}
-              {renderBudgetsGrid()}
-              {renderRecentExpenses()}
-            </>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+
+            <MonthlySelector
+              year={year}
+              month={month}
+              onChange={(newYear, newMonth) => {
+                setYear(newYear);
+                setMonth(newMonth);
+              }}
+            />
+
+            {loading ? (
+              <View style={styles.stateBox}>
+                <ActivityIndicator size="large" color={colors.tint} />
+              </View>
+            ) : error ? (
+              <View style={styles.stateBox}>
+                <ThemedText type="body" style={{ color: colors.error, textAlign: 'center' }}>
+                  {error}
+                </ThemedText>
+                <Pressable
+                  onPress={() => void loadDashboard()}
+                  style={[styles.retryButton, { backgroundColor: colors.tint }]}>
+                  <Text style={styles.retryButtonText}>Try again</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                {renderSummaryGrid()}
+                {renderBudgetsGrid()}
+                {renderRecentExpenses()}
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 
@@ -277,20 +259,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  navRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  navPill: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
-  },
-  navPillText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   grid: {
     flexDirection: 'row',

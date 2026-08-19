@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -6,11 +5,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { SectionCard } from '@/components/reports/section-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
@@ -19,9 +18,11 @@ import { CURRENCIES, THEMES } from '@/constants/settings';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
+import { useNavLayout } from '@/hooks/use-nav-layout';
 import { useThemeColors } from '@/hooks/use-theme';
 import { updateProfile } from '@/services/settings';
 import { getErrorMessage } from '@/utils/errors';
+import { validateBudgetPercentages } from '@/utils/validators';
 
 const WIDE_BREAKPOINT = 900;
 
@@ -41,7 +42,7 @@ function OptionRow({ label, selected, onPress, colors }) {
 
 export default function SettingsScreen() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
+  const { width } = useNavLayout();
   const wide = width >= WIDE_BREAKPOINT;
   const { user, signOut, refreshUser } = useAuth();
   const { settings, updateSettings } = useSettings();
@@ -61,6 +62,16 @@ export default function SettingsScreen() {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  const [prevSettings, setPrevSettings] = useState(settings);
+  if (prevSettings !== settings) {
+    setPrevSettings(settings);
+    setCurrency(settings.currency);
+    setNeedsPct(String(settings.budget_needs));
+    setSavingsPct(String(settings.budget_savings));
+    setWantsPct(String(settings.budget_wants));
+    setTheme(settings.theme);
+  }
 
   const handleSaveProfile = async () => {
     if (!name.trim()) {
@@ -85,12 +96,9 @@ export default function SettingsScreen() {
     const needs = Number(needsPct);
     const savings = Number(savingsPct);
     const wants = Number(wantsPct);
-    if (!Number.isInteger(needs) || !Number.isInteger(savings) || !Number.isInteger(wants)) {
-      setSettingsErr('Budget percentages must be whole numbers.');
-      return;
-    }
-    if (needs + savings + wants !== 100) {
-      setSettingsErr('Budget percentages must add up to 100%.');
+    const validationError = validateBudgetPercentages({ needs, savings, wants });
+    if (validationError) {
+      setSettingsErr(validationError);
       return;
     }
     setSavingSettings(true);
@@ -118,16 +126,14 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText type="title">Settings</ThemedText>
-          <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
-            <Text style={[styles.backText, { color: colors.textSecondary }]}>Back</Text>
-          </Pressable>
-        </View>
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <ThemedText type="title" style={styles.title}>
+            Settings
+          </ThemedText>
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={wide ? styles.sideBySide : styles.stacked}>
             <SectionCard title="Profile" style={styles.flex}>
               <View style={styles.field}>
@@ -289,9 +295,10 @@ export default function SettingsScreen() {
               <Text style={[styles.logoutText, { color: colors.error }]}>Log out</Text>
             )}
           </Pressable>
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+          </ScrollView>
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 
@@ -308,18 +315,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  title: {
     marginBottom: Spacing.three,
-  },
-  backButton: {
-    padding: Spacing.two,
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
   content: {
     gap: Spacing.three,

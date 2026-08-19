@@ -25,8 +25,21 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
+// The backend wraps every response in {success, message, data}. Unwrap it
+// here so the rest of the app can keep treating response.data as the
+// resource itself, without every service call needing to know the envelope
+// exists.
+export function unwrapEnvelope(response) {
+  const body = response.data;
+  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+    response.message = body.message;
+    response.data = body.data;
+  }
+  return response;
+}
+
 apiClient.interceptors.response.use(
-  (response) => response,
+  unwrapEnvelope,
   async (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       await clearToken();

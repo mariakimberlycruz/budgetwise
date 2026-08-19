@@ -12,7 +12,27 @@ npx expo start        # dev server (scan QR with Expo Go)
 npm run web           # web only
 npm run android       # Android emulator/device
 npm run ios           # iOS simulator (macOS only)
+npm test              # Jest unit tests
 ```
+
+## Navigation
+
+`components/nav/app-shell.jsx` wraps every primary screen (dashboard, income, expenses, budgets, savings, bills, reports, financial health, settings) and renders:
+
+- **Phones** (< 768px) — a bottom tab bar (`bottom-tab-bar.jsx`) with Dashboard/Expenses/Budgets/Savings plus a "More" sheet for the rest.
+- **Tablet / web / desktop** (≥ 768px) — a persistent left sidebar (`sidebar-nav.jsx`) listing every screen, with an account/logout footer.
+
+`hooks/use-nav-layout.js` exposes the content width actually available (window width minus the sidebar, when shown), so each screen's existing responsive grid/table logic (`useNavLayout()` in place of `useWindowDimensions()`) lays out correctly instead of the sidebar eating into a `useWindowDimensions()`-based breakpoint. Icons are drawn from plain `View`s (`components/nav/nav-icon.jsx`) — no icon font/SVG dependency.
+
+## Error handling
+
+- **API responses** — the backend wraps every response in `{success, message, data}`; `services/api-client.js`'s response interceptor (`unwrapEnvelope`) unwraps it so every existing service call (`const { data } = await apiClient.get(...)`) keeps working unchanged.
+- **User-facing messages** — `utils/errors.js`'s `getErrorMessage(error)` maps any failure to one safe sentence: a timed-out request, no network connection, an expired session (401 → also triggers global sign-out via `setUnauthorizedHandler`), no permission (403), not found (404), a validation message straight from the backend (422), or a generic message for 5xx — raw exception text/stack traces are never shown.
+- **Loading / empty / error states** — each list screen shows a spinner while loading, an empty-state message (or `components/dashboard/empty-state.jsx`) when there's nothing to show, and an inline error with a **Try again** button on failure; forms disable their submit button and show a spinner while saving.
+
+## Tests
+
+`npm test` runs the Jest suite (`jest-expo` preset): pure business logic (`utils/__tests__/money.test.js` — including floating-point-safe currency formatting, `budget-alerts.test.js`, `validators.test.js`), the API envelope unwrapping (`services/__tests__/api-client.test.js`), authentication state transitions (`context/__tests__/AuthContext.test.jsx`), and one core component with real logic (`components/dashboard/__tests__/progress-bar.test.jsx`). Trivial presentational components are intentionally not covered.
 
 ## Authentication
 
@@ -38,6 +58,7 @@ The app ships with registration, login, logout, and persistent sessions:
 | `/savings` | Authenticated only | Savings goals with progress bars |
 | `/savings-goal-form` | Authenticated only | Create / edit a goal (modal) |
 | `/savings-contribution` | Authenticated only | Add a contribution to a goal (modal) |
+| `/settings` | Authenticated only | Profile (name, email) + preferences (currency, budget %, theme) + logout |
 
 ## Dashboard
 
@@ -83,6 +104,17 @@ Authenticated users can create savings goals and track progress toward them.
 - Responsive card **grid** — 1 column on phones, multi-column on tablets/web. Floating action button on Android/iOS, an "Add goal" button on web.
 - Loading, empty, and error states with retry.
 
+## Profile & Settings
+
+Authenticated users manage their profile and app preferences on the **Settings** screen (dashboard pill):
+
+- **Profile** — edit and save your name and email (`PUT /api/v1/auth/me`); a duplicate email returns a friendly error.
+- **Currency** — choose the display currency (default **Philippine Peso ₱**); the active currency is applied app-wide via `SettingsContext` → `configureMoney` (`utils/money.js`).
+- **Default budget percentages** — Needs / Savings / Wants defaults of 50 / 30 / 20; the form and the API reject values that don't add up to 100%.
+- **Theme** — **Light**, **Dark**, or **System**; saved per user on the backend and applied instantly (`app/_layout.jsx` `ThemeProvider` + `useColorScheme`).
+- **Logout** — clears the token and returns to the login screen.
+- **Responsive** — single-column (stacked) sections on Android/iOS; the two cards sit side by side on wide/web layouts (`useWindowDimensions` ≥ 900px).
+
 ## Reusable dashboard components
 
 `components/dashboard/` provides the shared building blocks: `SummaryCard`, `BudgetCard`, `ProgressBar`, `RecentExpenseCard`, `MonthlySelector`, and `EmptyState`.
@@ -108,12 +140,12 @@ EXPO_PUBLIC_API_PORT=8000
 ## Structure
 
 ```
-app/          Expo Router routes (login, register, dashboard, income, expenses, budgets, savings)
+app/          Expo Router routes (login, register, dashboard, income, expenses, budgets, savings, settings)
 components/   Reusable UI components (+ components/dashboard/ shared widgets)
-constants/    Theme, spacing, income + expense categories
-context/      React context (AuthContext, AppContext/API status)
-hooks/        Custom hooks
-services/     API client (axios), auth/health/income/expense/budget/dashboard/savings services
+constants/    Theme, spacing, income + expense categories, settings (currencies, themes, defaults)
+context/      React context (AuthContext, AppContext/API status, SettingsContext)
+hooks/        Custom hooks (color scheme, theme)
+services/     API client (axios), auth/health/income/expense/budget/dashboard/savings/settings services
 types/        Shared JSDoc type definitions
 utils/        Platform-aware helpers (API base URL, token storage, errors, money, dates, confirm)
 ```

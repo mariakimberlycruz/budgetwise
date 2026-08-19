@@ -1,8 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/nav/app-shell';
 import { MonthlySelector } from '@/components/dashboard/monthly-selector';
 import { ProgressBar } from '@/components/dashboard/progress-bar';
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +11,7 @@ import { ThemedTextInput } from '@/components/themed-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { BUDGET_CATEGORIES, CATEGORY_COLORS, EXPENSE_CATEGORIES } from '@/constants/expenses';
 import { Spacing } from '@/constants/theme';
+import { useNavLayout } from '@/hooks/use-nav-layout';
 import { useThemeColors } from '@/hooks/use-theme';
 import { deleteExpense, getExpenses } from '@/services/expense';
 import { confirmDelete } from '@/utils/confirm';
@@ -171,7 +173,7 @@ function ExpenseItem({ expense, wide, deleting, onEdit, onDelete }) {
 
 export default function ExpensesScreen() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
+  const { width } = useNavLayout();
   const wide = width >= BREAKPOINT;
 
   const now = new Date();
@@ -280,12 +282,7 @@ export default function ExpensesScreen() {
 
   const listHeader = (
     <View style={styles.header}>
-      <View style={styles.titleRow}>
-        <ThemedText type="title">Expenses</ThemedText>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backText, { color: colors.textSecondary }]}>Back</Text>
-        </Pressable>
-      </View>
+      <ThemedText type="title">Expenses</ThemedText>
 
       <MonthlySelector
         year={year}
@@ -361,27 +358,29 @@ export default function ExpensesScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <FlatList
-          data={items}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderItem}
-          ListHeaderComponent={listHeader}
-          ListEmptyComponent={renderEmpty}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-        {Platform.OS !== 'web' ? (
-          <Pressable
-            onPress={() => router.push('/expense-form')}
-            style={[styles.fab, { backgroundColor: colors.tint }]}
-            accessibilityLabel="Add expense">
-            <Text style={styles.fabText}>+</Text>
-          </Pressable>
-        ) : null}
-      </SafeAreaView>
-    </ThemedView>
+    <AppShell>
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <FlatList
+            data={items}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={renderItem}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={renderEmpty}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+          {Platform.OS !== 'web' ? (
+            <Pressable
+              onPress={() => router.push('/expense-form')}
+              style={[styles.fab, { backgroundColor: colors.tint }]}
+              accessibilityLabel="Add expense">
+              <Text style={styles.fabText}>+</Text>
+            </Pressable>
+          ) : null}
+        </SafeAreaView>
+      </ThemedView>
+    </AppShell>
   );
 }
 
@@ -412,18 +411,6 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: Spacing.three,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backButton: {
-    padding: Spacing.two,
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
   chips: {
     flexDirection: 'row',
